@@ -18,6 +18,12 @@ package org.gaul.s3proxy;
 
 import static java.util.Objects.requireNonNull;
 
+// CHECKSTYLE:OFF
+import static org.gaul.s3proxy.XMLUtils.writeInitiatorStanza;
+import static org.gaul.s3proxy.XMLUtils.writeOwnerStanza;
+import static org.gaul.s3proxy.XMLUtils.writeSimpleElement;
+// CHECKSTYLE:ON
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterInputStream;
@@ -556,7 +562,8 @@ public class S3ProxyHandler {
             }
         case "GET":
             if (uri.equals("/")) {
-                handleContainerList(response, blobStore);
+                new S3BucketHandler(request, response, blobStore)
+                        .handleContainerList();
                 return;
             } else if (path.length <= 2 || path[2].isEmpty()) {
                 if ("".equals(request.getParameter("acl"))) {
@@ -2560,36 +2567,6 @@ public class S3ProxyHandler {
         if (expires != -1) {
             builder.expires(new Date(expires));
         }
-    }
-
-    // TODO: bogus values
-    private static void writeInitiatorStanza(XMLStreamWriter xml)
-            throws XMLStreamException {
-        xml.writeStartElement("Initiator");
-
-        writeSimpleElement(xml, "ID", FAKE_INITIATOR_ID);
-        writeSimpleElement(xml, "DisplayName",
-                FAKE_INITIATOR_DISPLAY_NAME);
-
-        xml.writeEndElement();
-    }
-
-    // TODO: bogus values
-    private static void writeOwnerStanza(XMLStreamWriter xml)
-            throws XMLStreamException {
-        xml.writeStartElement("Owner");
-
-        writeSimpleElement(xml, "ID", FAKE_OWNER_ID);
-        writeSimpleElement(xml, "DisplayName", FAKE_OWNER_DISPLAY_NAME);
-
-        xml.writeEndElement();
-    }
-
-    private static void writeSimpleElement(XMLStreamWriter xml,
-            String elementName, String characters) throws XMLStreamException {
-        xml.writeStartElement(elementName);
-        xml.writeCharacters(characters);
-        xml.writeEndElement();
     }
 
     private static BlobMetadata createFakeBlobMetadata(BlobStore blobStore) {

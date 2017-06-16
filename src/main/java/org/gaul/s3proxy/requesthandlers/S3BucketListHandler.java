@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.gaul.s3proxy;
+package org.gaul.s3proxy.requesthandlers;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -22,32 +22,24 @@ import java.util.Date;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
+import org.gaul.s3proxy.S3Exception;
+import org.gaul.s3proxy.XMLUtils;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.domain.PageSet;
 import org.jclouds.blobstore.domain.StorageMetadata;
 
-// CHECKSTYLE:OFF
-import static org.gaul.s3proxy.XMLUtils.writeOwnerStanza;
-import static org.gaul.s3proxy.XMLUtils.writeSimpleElement;
-// CHECKSTYLE:ON
-
-public class S3BucketHandler extends AbstractRequestHandler {
-    private static final String AWS_XMLNS =
-            "http://s3.amazonaws.com/doc/2006-03-01/";
-    private final XMLOutputFactory xmlOutputFactory =
-            XMLOutputFactory.newInstance();
-
-    S3BucketHandler(HttpServletRequest request,
-                    HttpServletResponse response,
-                    BlobStore blobStore) {
+public final class S3BucketListHandler extends AbstractS3BucketHandler {
+    public S3BucketListHandler(HttpServletRequest request,
+                        HttpServletResponse response,
+                        BlobStore blobStore) {
         super(request, response, blobStore);
     }
 
-    public final void handleContainerList() throws IOException {
+    @Override
+    public void executeRequest() throws IOException, S3Exception {
         PageSet<? extends StorageMetadata> buckets = this.getBlobStore().list();
         try (Writer writer = this.getResponse().getWriter()) {
             XMLStreamWriter xml = xmlOutputFactory.createXMLStreamWriter(
@@ -56,13 +48,13 @@ public class S3BucketHandler extends AbstractRequestHandler {
             xml.writeStartElement("ListAllMyBucketsResult");
             xml.writeDefaultNamespace(AWS_XMLNS);
 
-            writeOwnerStanza(xml);
+            XMLUtils.writeOwnerStanza(xml);
 
             xml.writeStartElement("Buckets");
             for (StorageMetadata metadata : buckets) {
                 xml.writeStartElement("Bucket");
 
-                writeSimpleElement(xml, "Name", metadata.getName());
+                XMLUtils.writeSimpleElement(xml, "Name", metadata.getName());
 
                 Date creationDate = metadata.getCreationDate();
                 if (creationDate == null) {
@@ -71,7 +63,7 @@ public class S3BucketHandler extends AbstractRequestHandler {
                     // s3cmd which require one.
                     creationDate = new Date(0);
                 }
-                writeSimpleElement(xml, "CreationDate",
+                XMLUtils.writeSimpleElement(xml, "CreationDate",
                         this.getBlobStore().getContext().utils().date()
                                 .iso8601DateFormat(creationDate).trim());
 

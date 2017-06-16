@@ -82,6 +82,8 @@ import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
 
 import org.apache.commons.fileupload.MultipartStream;
+import org.gaul.s3proxy.requesthandlers.S3BucketListHandler;
+import org.gaul.s3proxy.requesthandlers.S3DeleteObjectHandler;
 import org.jclouds.blobstore.BlobStore;
 import org.jclouds.blobstore.KeyNotFoundException;
 import org.jclouds.blobstore.domain.Blob;
@@ -557,13 +559,15 @@ public class S3ProxyHandler {
                         path[2], uploadId);
                 return;
             } else {
-                handleBlobRemove(response, blobStore, path[1], path[2]);
+                new S3DeleteObjectHandler(request, response, blobStore,
+                        path[1], path[2])
+                        .executeRequest();
                 return;
             }
         case "GET":
             if (uri.equals("/")) {
-                new S3BucketHandler(request, response, blobStore)
-                        .handleContainerList();
+                new S3BucketListHandler(request, response, blobStore)
+                        .executeRequest();
                 return;
             } else if (path.length <= 2 || path[2].isEmpty()) {
                 if ("".equals(request.getParameter("acl"))) {
@@ -681,7 +685,8 @@ public class S3ProxyHandler {
         switch (method) {
         case "GET":
             if (uri.equals("/")) {
-                handleContainerList(response, blobStore);
+                new S3BucketListHandler(request, response, blobStore)
+                        .executeRequest();
                 return;
             } else if (path.length <= 2 || path[2].isEmpty()) {
                 String containerName = path[1];
@@ -963,47 +968,6 @@ public class S3ProxyHandler {
             return "private";
         } else {
             throw new S3Exception(S3ErrorCode.NOT_IMPLEMENTED);
-        }
-    }
-
-    private void handleContainerList(HttpServletResponse response,
-            BlobStore blobStore) throws IOException {
-        PageSet<? extends StorageMetadata> buckets = blobStore.list();
-
-        try (Writer writer = response.getWriter()) {
-            XMLStreamWriter xml = xmlOutputFactory.createXMLStreamWriter(
-                    writer);
-            xml.writeStartDocument();
-            xml.writeStartElement("ListAllMyBucketsResult");
-            xml.writeDefaultNamespace(AWS_XMLNS);
-
-            writeOwnerStanza(xml);
-
-            xml.writeStartElement("Buckets");
-            for (StorageMetadata metadata : buckets) {
-                xml.writeStartElement("Bucket");
-
-                writeSimpleElement(xml, "Name", metadata.getName());
-
-                Date creationDate = metadata.getCreationDate();
-                if (creationDate == null) {
-                    // Some providers, e.g., Swift, do not provide container
-                    // creation date.  Emit a bogus one to satisfy clients like
-                    // s3cmd which require one.
-                    creationDate = new Date(0);
-                }
-                writeSimpleElement(xml, "CreationDate",
-                        blobStore.getContext().utils().date()
-                                .iso8601DateFormat(creationDate).trim());
-
-                xml.writeEndElement();
-            }
-            xml.writeEndElement();
-
-            xml.writeEndElement();
-            xml.flush();
-        } catch (XMLStreamException xse) {
-            throw new IOException(xse);
         }
     }
 
@@ -1330,13 +1294,6 @@ public class S3ProxyHandler {
         } catch (XMLStreamException xse) {
             throw new IOException(xse);
         }
-    }
-
-    private static void handleBlobRemove(HttpServletResponse response,
-            BlobStore blobStore, String containerName,
-            String blobName) throws IOException, S3Exception {
-        blobStore.removeBlob(containerName, blobName);
-        response.sendError(HttpServletResponse.SC_NO_CONTENT);
     }
 
     private void handleMultiBlobRemove(HttpServletResponse response,

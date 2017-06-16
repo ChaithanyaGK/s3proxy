@@ -14,24 +14,32 @@
  * limitations under the License.
  */
 
-package org.gaul.s3proxy;
+package org.gaul.s3proxy.requesthandlers;
 
-import java.io.InputStream;
+import java.io.IOException;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.gaul.s3proxy.S3Exception;
 import org.jclouds.blobstore.BlobStore;
 
-public class S3ObjectHandler extends AbstractRequestHandler {
-    S3ObjectHandler(HttpServletRequest request,
-                    HttpServletResponse response,
-                    BlobStore blobStore) {
+public final class S3DeleteObjectHandler extends AbstractS3ObjectHandler {
+    private String bucketName;
+    private String objectName;
+    public S3DeleteObjectHandler(HttpServletRequest request,
+                          HttpServletResponse response,
+                          BlobStore blobStore,
+                          String bucketName,
+                          String objectName) {
         super(request, response, blobStore);
+        this.bucketName = bucketName;
+        this.objectName = objectName;
     }
 
-    public final void handlePutBlob(InputStream is, String blobName) {
-
+    @Override
+    public void executeRequest() throws IOException, S3Exception {
+        getBlobStore().removeBlob(bucketName, objectName);
+        getResponse().sendError(HttpServletResponse.SC_NO_CONTENT);
     }
 }
-
